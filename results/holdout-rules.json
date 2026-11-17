@@ -1,0 +1,13 @@
+{
+  "extractor" : "rules-baseline",
+  "documents" : 60,
+  "field_accuracy" : 92.9,
+  "document_accuracy" : 60.0,
+  "review_rate" : 43.3,
+  "auto_accepted" : 34,
+  "auto_accepted_with_error" : 0,
+  "input_tokens" : 0,
+  "output_tokens" : 0,
+  "cost_per_document_usd" : 0.001500000000000001,
+  "model_errors" : 0
+}

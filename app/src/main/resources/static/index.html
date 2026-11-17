@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Document Intake Review</title>
+<style>
+  :root { --bg:#f5f6f3; --panel:#fff; --ink:#1b2a2f; --muted:#5d6b6e; --line:#d9dfda; --accent:#0b6e63; --warn:#9a5b00; --warn-bg:#fff4e0; --bad:#a3262a; --bad-bg:#fdecec; --ok-bg:#e6f4ef; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding:20px 24px 12px; border-bottom:1px solid var(--line); background:var(--panel); }
+  h1 { margin:0; font-size:20px; } header p { margin:4px 0 0; color:var(--muted); font-size:14px; }
+  main { display:grid; grid-template-columns:minmax(300px, 380px) 1fr; gap:16px; padding:16px 24px; }
+  @media (max-width:820px) { main { grid-template-columns:1fr; padding:12px 16px; } }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  h2 { font-size:15px; margin:0 0 10px; }
+  .upload { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  button { font:inherit; border:1px solid var(--line); background:var(--panel); border-radius:7px; padding:6px 12px; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button.reject { color:var(--bad); }
+  ul.docs { list-style:none; margin:0; padding:0; }
+  ul.docs li { padding:9px 8px; border-bottom:1px solid var(--line); cursor:pointer; border-radius:6px; }
+  ul.docs li:hover, ul.docs li.sel { background:#eef2ef; }
+  .name { font-weight:600; font-size:14px; word-break:break-all; }
+  .meta { color:var(--muted); font-size:13px; }
+  .pill { display:inline-block; font-size:12px; font-weight:600; padding:1px 8px; border-radius:999px; }
+  .ACCEPTED, .APPROVED { background:var(--ok-bg); color:var(--accent); }
+  .PENDING_REVIEW { background:var(--warn-bg); color:var(--warn); }
+  .REJECTED { background:var(--bad-bg); color:var(--bad); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  td, th { text-align:left; padding:6px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; width:34%; }
+  td input { width:100%; font:inherit; padding:4px 6px; border:1px solid var(--line); border-radius:5px; }
+  tr.flagged th { color:var(--warn); }
+  ul.flags { margin:0 0 12px; padding-left:18px; } ul.flags li { margin:2px 0; }
+  .code { font-family:ui-monospace, Consolas, monospace; font-size:12px; font-weight:600; }
+  pre { background:#fafbf9; border:1px solid var(--line); border-radius:7px; padding:10px; white-space:pre-wrap; font-size:13px; max-height:360px; overflow:auto; }
+  .removed { background:var(--bad-bg); color:var(--bad); }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0; }
+  .actions input { flex:1; min-width:160px; font:inherit; padding:5px 8px; border:1px solid var(--line); border-radius:6px; }
+  .msg { color:var(--bad); font-size:14px; min-height:20px; }
+  .empty { color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bank Contoh document intake</h1>
+  <p>Upload a synthetic form. Anything the pipeline is unsure about waits here for a person.</p>
+</header>
+<main>
+  <section class="panel">
+    <h2>Documents</h2>
+    <form class="upload" id="upload">
+      <input type="file" id="file" accept="application/pdf" required>
+      <button class="primary" type="submit">Upload</button>
+    </form>
+    <div class="msg" id="uploadMsg"></div>
+    <ul class="docs" id="docs"><li class="empty">Nothing uploaded yet.</li></ul>
+  </section>
+  <section class="panel" id="detail"><p class="empty">Pick a document to see its fields and flags.</p></section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let selected = null;
+
+function el(tag, attrs = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
+  }
+  for (const c of children) if (c != null) e.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return e;
+}
+
+async function api(path, options) {
+  const res = await fetch(path, options);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail || body.message || body.error || res.statusText);
+  return body;
+}
+
+async function refresh() {
+  const docs = await api("/api/documents");
+  const list = $("docs");
+  list.replaceChildren();
+  if (!docs.length) list.append(el("li", { class: "empty" }, "Nothing uploaded yet."));
+  for (const d of docs) {
+    const li = el("li", { class: d.id === selected ? "sel" : "", onclick: () => show(d.id) },
+      el("div", { class: "name" }, d.fileName),
+      el("div", { class: "meta" }, el("span", { class: "pill " + d.status }, d.status.replace("_", " ")), " ",
+        (d.result.formType || "unknown form").replaceAll("_", " ").toLowerCase(), " · ", d.result.flags.length + " flag(s)"));
+    list.append(li);
+  }
+}
+
+async function show(id) {
+  selected = id;
+  const d = await api("/api/documents/" + id);
+  const flaggedFields = new Set(d.result.flags.map(f => f.field).filter(Boolean));
+  const pending = d.status === "PENDING_REVIEW";
+  const shown = d.finalFields || d.result.fields;
+
+  const rows = Object.entries(shown).map(([k, v]) => el("tr", { class: flaggedFields.has(k) ? "flagged" : "" },
+    el("th", {}, k),
+    el("td", {}, pending ? el("input", { name: k, value: v ?? "", "aria-label": k }) : (v ?? "—"))));
+
+  const flags = d.result.flags.length
+    ? el("ul", { class: "flags" }, ...d.result.flags.map(f => el("li", {}, el("span", { class: "code" }, f.code), f.field ? " " + f.field + ": " : ": ", f.detail)))
+    : el("p", {}, "No flags. Accepted automatically.");
+
+  const text = el("pre");
+  for (const line of d.text.split("\n")) {
+    const flaggedLine = d.result.flags.some(f => f.code === "INJECTION_SUSPECTED" && f.detail.includes(line.trim().slice(0, 40)) && line.trim());
+    text.append(flaggedLine ? el("span", { class: "removed" }, line) : line, "\n");
+  }
+
+  const msg = el("div", { class: "msg" });
+  const note = el("input", { placeholder: "Note for the audit trail", "aria-label": "Review note" });
+  const actions = pending ? el("div", { class: "actions" }, note,
+    el("button", { class: "primary", onclick: () => decide("APPROVE") }, "Approve"),
+    el("button", { class: "reject", onclick: () => decide("REJECT") }, "Reject")) : null;
+
+  async function decide(decision) {
+    const fields = {};
+    for (const input of $("detail").querySelectorAll("td input")) {
+      const before = d.result.fields[input.name] ?? "";
+      if (input.value !== before) fields[input.name] = input.value;
+    }
+    try {
+      await api("/api/documents/" + id + "/review", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision, fields, note: note.value }) });
+      await show(id); await refresh();
+    } catch (e) { msg.textContent = e.message; }
+  }
+
+  $("detail").replaceChildren(...[
+    el("h2", {}, d.fileName, " ", el("span", { class: "pill " + d.status }, d.status.replace("_", " "))),
+    el("p", { class: "meta" }, (d.result.formType || "Unknown form") + " · decided by the pipeline: " + d.result.decision),
+    el("h2", {}, "Flags"), flags,
+    el("h2", {}, "Fields"), el("table", {}, ...rows),
+    actions, msg,
+    d.reviewNote ? el("p", { class: "meta" }, "Review note: " + d.reviewNote) : null,
+    el("h2", {}, "Text read from the document"), text].filter(Boolean));
+  refresh();
+}
+
+$("upload").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("uploadMsg").textContent = "";
+  const body = new FormData();
+  body.append("file", $("file").files[0]);
+  try { const d = await api("/api/documents", { method: "POST", body }); await show(d.id); }
+  catch (err) { $("uploadMsg").textContent = err.message; }
+});
+refresh();
+</script>
+</body>
+</html>

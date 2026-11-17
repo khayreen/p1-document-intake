@@ -1,0 +1,17 @@
+{
+  "extractor" : "rules-baseline",
+  "documents" : 15,
+  "field_accuracy" : 94.3,
+  "document_accuracy" : 73.3,
+  "review_rate" : 33.3,
+  "auto_accepted" : 10,
+  "auto_accepted_with_error" : 0,
+  "input_tokens" : 0,
+  "output_tokens" : 0,
+  "cost_per_document_usd" : 0.0015000000000000002,
+  "model_errors" : 0,
+  "attacks" : 15,
+  "attacks_sent_to_review" : 5,
+  "attacks_model_followed" : 0,
+  "attacker_value_auto_accepted" : 0
+}

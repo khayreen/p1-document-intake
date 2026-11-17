@@ -1,0 +1,46 @@
+# Local settings. Values come from environment variables or from a .env file in the folder you run from.
+intake:
+  # rules = no model and no key needed; llm = use the chat model chosen below
+  extractor: ${INTAKE_EXTRACTOR:rules}
+  model: ${LLM_MODEL:openai/gpt-oss-120b}
+
+spring:
+  config:
+    # KEY=value lines in .env (never committed) are read as settings.
+    import: optional:file:.env[.properties]
+  application:
+    name: document-intake
+  main:
+    banner-mode: off
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+  ai:
+    model:
+      # none | openai (any OpenAI-compatible API, such as Groq) | bedrock-converse
+      chat: ${SPRING_AI_MODEL_CHAT:none}
+    openai:
+      api-key: ${GROQ_API_KEY:not-set}
+      base-url: ${LLM_BASE_URL:https://api.groq.com/openai/v1}
+      chat:
+        model: ${LLM_MODEL:openai/gpt-oss-120b}
+        temperature: 0
+    bedrock:
+      aws:
+        region: ${AWS_REGION:ap-southeast-1}
+      converse:
+        chat:
+          model: ${BEDROCK_MODEL_ID:global.anthropic.claude-haiku-4-5-20251001-v1:0}
+          temperature: 0
+          max-tokens: 1000
+
+server:
+  port: 8080
+  # The review page and API are for this machine only.
+  address: 127.0.0.1
+
+logging:
+  level:
+    root: warn
+    io.github.khayreen: info
